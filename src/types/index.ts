@@ -76,6 +76,15 @@ export interface PatientEmergencyCase {
   primaryObservedSymptom: string;
   recommendedAction: string;
   requiredEquipment: string[];
+  confidence?: number;
+  mobilityStatus?: string;
+  distressLevel?: string;
+  faceBoundingBox?: {
+    ymin: number;
+    xmin: number;
+    ymax: number;
+    xmax: number;
+  };
   faceSnapshotUrl: string; // Captured face photo
   fullCctvSnapshotUrl?: string;
   allocatedRoom: {

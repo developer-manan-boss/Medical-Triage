@@ -143,6 +143,52 @@ export const EmergencyAlertModal: React.FC<EmergencyAlertModalProps> = ({
             </div>
           </div>
 
+          {/* AI Clinical Findings & Equipment Readiness */}
+          <div className="bg-slate-950 border border-slate-800 rounded-xl p-4 space-y-3">
+            <div className="flex items-center justify-between border-b border-slate-800/80 pb-2">
+              <span className="text-xs font-bold text-red-400 uppercase tracking-wider flex items-center gap-1.5">
+                <AlertTriangle className="w-4 h-4 text-red-500" />
+                Clinical Triage Findings
+              </span>
+              {typeof currentCase.confidence === 'number' && (
+                <span className="text-[11px] font-mono text-cyan-400 font-bold">
+                  AI Confidence: {Math.round(currentCase.confidence)}%
+                </span>
+              )}
+            </div>
+
+            <p className="text-sm font-semibold text-white">
+              {currentCase.primaryObservedSymptom}
+            </p>
+
+            <div className="flex flex-wrap items-center gap-2 text-xs">
+              <span className="px-2 py-0.5 rounded bg-slate-900 border border-slate-800 text-slate-300">
+                Mobility: <strong className="text-white">{currentCase.mobilityStatus || (currentCase.onStretcher ? 'Stretcher' : 'Walking')}</strong>
+              </span>
+              <span className="px-2 py-0.5 rounded bg-slate-900 border border-slate-800 text-slate-300">
+                Distress: <strong className="text-white">{currentCase.distressLevel || 'Acute'}</strong>
+              </span>
+              <span className="px-2 py-0.5 rounded bg-slate-900 border border-slate-800 text-slate-300">
+                Action: <strong className="text-slate-200">{currentCase.recommendedAction}</strong>
+              </span>
+            </div>
+
+            {currentCase.requiredEquipment && currentCase.requiredEquipment.length > 0 && (
+              <div className="pt-2 border-t border-slate-800/60">
+                <span className="text-[10px] text-slate-400 font-bold uppercase tracking-wider block mb-1.5">
+                  Bedside Equipment Ready:
+                </span>
+                <div className="flex flex-wrap gap-1.5">
+                  {currentCase.requiredEquipment.map((eq, idx) => (
+                    <span key={idx} className="px-2 py-0.5 rounded text-[10px] font-semibold bg-emerald-950/80 border border-emerald-800 text-emerald-300">
+                      ✓ {eq}
+                    </span>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+
           {/* Middle Row: Dispatched Tri-Response Team (Doctor, Nurse, Receptionist) */}
           <div className="bg-slate-950 border border-slate-800 rounded-xl p-4">
             <h4 className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-3 flex items-center gap-2">

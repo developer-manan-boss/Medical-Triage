@@ -26,11 +26,29 @@ export function extractFaceFromElement(
       return generateSyntheticEmergencyFace(gateCode, 'Emergency Trauma Patient');
     }
 
-    // Default to upper-middle quadrant if no box provided (typical for CCTV face capture)
-    const ymin = box ? (box.ymin / 1000) * sourceHeight : sourceHeight * 0.15;
-    const xmin = box ? (box.xmin / 1000) * sourceWidth : sourceWidth * 0.35;
-    const ymax = box ? (box.ymax / 1000) * sourceHeight : sourceHeight * 0.55;
-    const xmax = box ? (box.xmax / 1000) * sourceWidth : sourceWidth * 0.65;
+    // Use detected bounding box if provided, with 15% framing margin for natural clinical portrait
+    let ymin: number;
+    let xmin: number;
+    let ymax: number;
+    let xmax: number;
+
+    if (box && typeof box.ymin === 'number' && typeof box.ymax === 'number' && box.ymax > box.ymin) {
+      const boxH = (box.ymax - box.ymin) / 1000 * sourceHeight;
+      const boxW = (box.xmax - box.xmin) / 1000 * sourceWidth;
+      const padY = boxH * 0.25;
+      const padX = boxW * 0.25;
+
+      ymin = Math.max(0, (box.ymin / 1000) * sourceHeight - padY);
+      xmin = Math.max(0, (box.xmin / 1000) * sourceWidth - padX);
+      ymax = Math.min(sourceHeight, (box.ymax / 1000) * sourceHeight + padY);
+      xmax = Math.min(sourceWidth, (box.xmax / 1000) * sourceWidth + padX);
+    } else {
+      // Default to upper-center portrait quadrant
+      ymin = sourceHeight * 0.12;
+      xmin = sourceWidth * 0.30;
+      ymax = sourceHeight * 0.58;
+      xmax = sourceWidth * 0.70;
+    }
 
     const cropW = Math.max(80, xmax - xmin);
     const cropH = Math.max(80, ymax - ymin);

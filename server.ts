@@ -9,7 +9,7 @@ const app = express();
 const PORT = process.env.PORT ? parseInt(process.env.PORT, 10) : 3000;
 
 // Enable large JSON payload for camera frame base64 transfers
-app.use(express.json({ limit: '25mb' }));
+app.use(express.json({ limit: '35mb' }));
 
 // Health and AI status check endpoint
 app.get('/api/health', (req, res) => {
@@ -31,44 +31,96 @@ app.post('/api/analyze-frame', async (req, res) => {
 
     const apiKey = process.env.GEMINI_API_KEY;
     if (!apiKey) {
-      // Return structured response indicating offline mode so client uses rule-based engine
       return res.json({
         source: 'rule-engine-fallback',
-        message: 'No GEMINI_API_KEY in environment, relying on client-side smart vision model'
+        message: 'No GEMINI_API_KEY configured, falling back to local clinical model'
       });
     }
 
     const ai = new GoogleGenAI({ apiKey });
-    
-    // Extract raw base64 data
     const cleanBase64 = imageBase64.replace(/^data:image\/\w+;base64,/, '');
 
-    const prompt = `You are an expert Hospital Emergency AI Triage Vision System monitoring CCTV gate feed at ${gateName || gateId || 'Emergency Entry'}.
-Analyze this CCTV / camera frame of an incoming patient or entering person:
-1. Is there bleeding or visible hemorrhage / blood loss?
-2. Is the person on a stretcher, gurney, wheelchair, or supported by paramedics?
-3. Is an ambulance or emergency vehicle arriving?
-4. Is the patient unconscious, collapsed, in respiratory distress, clutching chest, or limp?
-5. Determine a Seriousness Score from 1.0 to 10.0 (where 9.0-10.0 is Life-Threatening/Code RED, 7.0-8.9 is High-Acuity/Code ORANGE, 4.0-6.9 is Moderate/Code YELLOW, 1.0-3.9 is Stable/Code GREEN).
-6. Provide a concise triage assessment, primary observed symptom, recommended equipment (e.g., Trauma resuscitation, ventilator, defibrillator, O-negative blood).
-7. If a human face or upper body is visible, estimate the bounding box [ymin, xmin, ymax, xmax] normalized between 0 and 1000.`;
+    const prompt = `You are a Board-Certified Emergency Triage AI Vision Specialist evaluating incoming live CCTV / webcam footage at ${gateName || gateId || 'Hospital Emergency Entrance'}.
+
+Your task is to conduct an accurate, objective, clinical Emergency Severity Index (ESI) & Manchester Triage assessment from the provided camera image:
+
+1. PERSON PRESENCE & FACE LOCALIZATION:
+   - Identify if a human is in frame. If visible, provide precise face bounding box coordinates [ymin, xmin, ymax, xmax] normalized from 0 to 1000.
+
+2. VISUAL EMERGENCY INDICATORS:
+   - Bleeding: Check for active hemorrhage, blood on skin/clothing, lacerations, or bandages.
+   - Mobility & Posture: Is the person standing/walking independently, being supported, in a wheelchair, on a stretcher/gurney, or slumped/collapsed on the floor/chair?
+   - Consciousness & Distress: Are they alert, grimacing in severe pain, clutching their chest/head/abdomen, slumped/unresponsive, or in respiratory distress?
+   - Ambulance/EMT Presence: Are emergency vehicles, stretchers, or paramedics visible?
+
+3. SERIOUSNESS SCORE & TRIAGE CODE (1.0 to 10.0 scale):
+   - Score 8.5 - 10.0 (CODE RED / ESI Level 1): Life-threatening emergencies (Severe bleeding, cardiopulmonary arrest, unconsciousness, severe multi-trauma, gurney CPR).
+   - Score 7.0 - 8.4 (CODE ORANGE / ESI Level 2): High acuity (Acute chest pain, severe dyspnea, altered mental status, severe acute pain, substantial hemorrhage).
+   - Score 4.0 - 6.9 (CODE YELLOW / ESI Level 3): Moderate acuity (Moderate pain, stable limb fractures, supported walk-in, minor bleeding, abdominal pain).
+   - Score 1.0 - 3.9 (CODE GREEN / ESI Level 4-5): Low acuity / Stable (Walking alert, no acute distress, looking into camera, minor sprain/bruise). Note: If the person in front of the camera is simply looking calm and normal, give a realistic stable score (1.5 - 2.8).
+
+4. ACCURATE DIAGNOSTIC RATIONALE & BED ALLOCATION RECOMMENDATION:
+   - Provide concise primary observed symptom, recommended clinical protocol, and specific equipment needed (e.g., Trauma Cart, Ventilator, Defibrillator, 12-Lead ECG, Central O2).`;
 
     const triageSchema: Schema = {
       type: Type.OBJECT,
       properties: {
-        seriousnessScore: { type: Type.NUMBER, description: 'Triage seriousness score from 1.0 to 10.0' },
-        triageCode: { type: Type.STRING, enum: ['RED', 'ORANGE', 'YELLOW', 'GREEN'], description: 'Hospital emergency code' },
-        isBleeding: { type: Type.BOOLEAN, description: 'True if visible blood, active bleeding, or hemorrhage wounds are detected' },
-        bleedingSeverity: { type: Type.STRING, enum: ['None', 'Minor', 'Moderate', 'Severe/Arterial'], description: 'Severity of bleeding' },
-        onStretcher: { type: Type.BOOLEAN, description: 'True if patient is on a stretcher, gurney, or wheelchair' },
-        isAmbulanceArrival: { type: Type.BOOLEAN, description: 'True if ambulance vehicle or EMT personnel are present' },
-        isUnconscious: { type: Type.BOOLEAN, description: 'True if patient appears unconscious, limp, unresponsive or in severe distress' },
-        primaryObservedSymptom: { type: Type.STRING, description: 'Primary visual medical finding' },
-        recommendedAction: { type: Type.STRING, description: 'Immediate emergency protocol recommended' },
+        seriousnessScore: { 
+          type: Type.NUMBER, 
+          description: 'Accurate clinical triage score from 1.0 to 10.0 based on visible acute distress' 
+        },
+        triageCode: { 
+          type: Type.STRING, 
+          enum: ['RED', 'ORANGE', 'YELLOW', 'GREEN'], 
+          description: 'Hospital emergency acuity code' 
+        },
+        confidence: {
+          type: Type.NUMBER,
+          description: 'Detection confidence percentage (e.g. 92.5)'
+        },
+        isBleeding: { 
+          type: Type.BOOLEAN, 
+          description: 'True if visible blood, active hemorrhage, or bandaged wound is detected' 
+        },
+        bleedingSeverity: { 
+          type: Type.STRING, 
+          enum: ['None', 'Minor', 'Moderate', 'Severe/Arterial'], 
+          description: 'Severity level of hemorrhage' 
+        },
+        onStretcher: { 
+          type: Type.BOOLEAN, 
+          description: 'True if patient is on a stretcher, gurney, or wheelchair' 
+        },
+        isAmbulanceArrival: { 
+          type: Type.BOOLEAN, 
+          description: 'True if ambulance vehicle or EMT personnel are present' 
+        },
+        isUnconscious: { 
+          type: Type.BOOLEAN, 
+          description: 'True if patient appears unconscious, limp, or unresponsive' 
+        },
+        mobilityStatus: {
+          type: Type.STRING,
+          enum: ['Walking Independent', 'Supported by Kin', 'Wheelchair', 'Stretcher/Gurney', 'Lying Down/Collapsed', 'Seated'],
+          description: 'Observed mobility posture'
+        },
+        distressLevel: {
+          type: Type.STRING,
+          enum: ['None/Calm', 'Mild Distress', 'Moderate Pain', 'Severe Acute Distress', 'Unresponsive/Critical'],
+          description: 'Level of visible physical/facial distress'
+        },
+        primaryObservedSymptom: { 
+          type: Type.STRING, 
+          description: 'Primary clinical visual finding with anatomical specificity' 
+        },
+        recommendedAction: { 
+          type: Type.STRING, 
+          description: 'Immediate bedside emergency protocol' 
+        },
         requiredEquipment: {
           type: Type.ARRAY,
           items: { type: Type.STRING },
-          description: 'Needed medical equipment: e.g. Ventilator, Defibrillator, Trauma Cart, Central O2'
+          description: 'Required medical devices (e.g. Ventilator, Defibrillator, Trauma Cart, Central O2, ECG)'
         },
         faceBoundingBox: {
           type: Type.OBJECT,
@@ -78,10 +130,23 @@ Analyze this CCTV / camera frame of an incoming patient or entering person:
             ymax: { type: Type.NUMBER },
             xmax: { type: Type.NUMBER }
           },
-          description: 'Estimated face or upper body box normalized 0 to 1000'
+          description: 'Estimated face bounding box coordinates normalized from 0 to 1000'
         }
       },
-      required: ['seriousnessScore', 'triageCode', 'isBleeding', 'onStretcher', 'isAmbulanceArrival', 'isUnconscious', 'primaryObservedSymptom', 'recommendedAction']
+      required: [
+        'seriousnessScore', 
+        'triageCode', 
+        'confidence',
+        'isBleeding', 
+        'bleedingSeverity',
+        'onStretcher', 
+        'isAmbulanceArrival', 
+        'isUnconscious', 
+        'mobilityStatus',
+        'distressLevel',
+        'primaryObservedSymptom', 
+        'recommendedAction'
+      ]
     };
 
     const response = await ai.models.generateContent({

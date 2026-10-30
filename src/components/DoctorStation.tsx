@@ -275,14 +275,32 @@ export const DoctorStation: React.FC<DoctorStationProps> = ({
 
               {/* Clinical AI Triage Findings */}
               <div className="bg-slate-950 border border-slate-800 rounded-xl p-4 space-y-2">
-                <span className="text-xs font-bold text-red-400 uppercase tracking-wider flex items-center gap-1.5">
-                  <AlertTriangle className="w-4 h-4 text-red-500" />
-                  AI Vision Findings & Immediate Threat:
-                </span>
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-bold text-red-400 uppercase tracking-wider flex items-center gap-1.5">
+                    <AlertTriangle className="w-4 h-4 text-red-500" />
+                    AI Vision Findings & Immediate Threat:
+                  </span>
+                  {typeof activeCase.confidence === 'number' && (
+                    <span className="text-[11px] font-mono text-cyan-400 font-bold">
+                      Confidence: {Math.round(activeCase.confidence)}%
+                    </span>
+                  )}
+                </div>
                 <p className="text-sm font-semibold text-slate-100">
                   {activeCase.primaryObservedSymptom}
                 </p>
-                <p className="text-xs text-slate-400">
+                <div className="flex flex-wrap items-center gap-2 text-xs pt-1">
+                  <span className="px-2 py-0.5 rounded bg-slate-900 border border-slate-800 text-slate-300">
+                    Mobility: <strong className="text-white">{activeCase.mobilityStatus || (activeCase.onStretcher ? 'Stretcher' : 'Walking')}</strong>
+                  </span>
+                  <span className="px-2 py-0.5 rounded bg-slate-900 border border-slate-800 text-slate-300">
+                    Distress: <strong className="text-white">{activeCase.distressLevel || 'Acute'}</strong>
+                  </span>
+                  <span className="px-2 py-0.5 rounded bg-slate-900 border border-slate-800 text-slate-300">
+                    Hemorrhage: <strong className="text-red-400">{activeCase.isBleeding ? activeCase.bleedingSeverity : 'None'}</strong>
+                  </span>
+                </div>
+                <p className="text-xs text-slate-400 pt-1">
                   Recommended Protocol: <span className="text-slate-200 font-medium">{activeCase.recommendedAction}</span>
                 </p>
               </div>
