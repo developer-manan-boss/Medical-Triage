@@ -1,0 +1,6 @@
+{
+  "name": "LifePulse AI - Emergency Triage & Smart Dispatch",
+  "description": "AI-powered hospital CCTV live triage system that monitors patient entry, detects seriousness and bleeding, captures face snapshots, alerts the nearest doctor/nurse/receptionist, and automatically allocates the nearest empty emergency room.",
+  "requestFramePermissions": ["camera"],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
